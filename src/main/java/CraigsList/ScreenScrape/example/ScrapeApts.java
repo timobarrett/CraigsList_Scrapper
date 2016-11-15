@@ -1,6 +1,7 @@
 package CraigsList.ScreenScrape.example;
 /**
  * Created by tim on 11/9/2016.
+ *
  */
 
 import org.jsoup.Jsoup;
@@ -15,7 +16,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
-public class ScrapeApts {
+class ScrapeApts {
     private static final String priceName = "result-price";
     private static final String locateName = "result-hood";
     private static final String titleName = "result-title";
@@ -24,8 +25,8 @@ public class ScrapeApts {
     private static Document doc;
     private int mTotalCount = 0;
     private int mProcessedCount = 0;
-    Set<String> mUniqueListingSet = new HashSet<String>();
-    ProcessArgs processArgs = null;
+    private Set<String> mUniqueListingSet = new HashSet<String>();
+    private ProcessArgs processArgs = null;
 
     public static void main(String[] args) throws IOException {
         ScrapeApts scrape = new ScrapeApts();
@@ -47,7 +48,7 @@ public class ScrapeApts {
             queryProcess();
             processPage(bw);
         }
-        writeToFile(bw, "Total read in at start = " + String.valueOf(mTotalCount) + " Proccesed count = " + String.valueOf(mProcessedCount));
+        writeToFile(bw, "Total read in at start = " + String.valueOf(mTotalCount) + " Processed count = " + String.valueOf(mProcessedCount));
         writeToFile(bw, "Unique Listing Count = " + mUniqueListingSet.size());
         closeFile(bw);
     }
@@ -111,7 +112,7 @@ public class ScrapeApts {
      * get the city/location if present, the url of the post, and the rent amount
      */
     //TODO - if description is blank printout the stupid title - what about parsing and blocking $value
-    public void processPage(BufferedWriter bw) {
+    private void processPage(BufferedWriter bw) {
         int procCnt = 0;
         String baseUrl = "https://losangeles.craigslist.org";
 
@@ -143,7 +144,7 @@ public class ScrapeApts {
      * @param bw - bufferedWriter
      * @param content - string content to write
      */
-    public void writeToFile(BufferedWriter bw, String content) {
+    private void writeToFile(BufferedWriter bw, String content) {
         //<div id="mapcontainer" data-arealat="34.052200" data-arealon="-118.242996">
         try {
             bw.write(content);
@@ -158,17 +159,20 @@ public class ScrapeApts {
      * @param filename - name of file to open
      * @return BufferedWriter for file to write
      */
-    public BufferedWriter openFile(String filename) {
+    private BufferedWriter openFile(String filename) {
         File file;
         BufferedWriter bw = null;
         try {
             file = new File(filename);
             if (file.exists()) {
-                file.delete();
+                if (!file.delete()){
+                    System.out.println("Error removing previous file instance");
+                }
             }
-            file.createNewFile();
-            FileWriter fw = new FileWriter(file.getAbsoluteFile());
-            bw = new BufferedWriter(fw);
+            if (file.createNewFile()){
+                FileWriter fw = new FileWriter(file.getAbsoluteFile());
+                bw = new BufferedWriter(fw);
+            }
         } catch (IOException io) {
             bw = null;
             System.out.println("Error opening file " + filename);
@@ -181,11 +185,11 @@ public class ScrapeApts {
      *
      * @param bw bufferredwriter
      */
-    public void closeFile(BufferedWriter bw) {
+    private void closeFile(BufferedWriter bw) {
         try {
             bw.close();
         } catch (IOException io) {
-            System.out.println("Errior closing file");
+            System.out.println("Error closing file");
         }
     }
 }

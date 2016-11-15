@@ -2,6 +2,7 @@ package CraigsList.ScreenScrape.example;
 
 /**
  * Created by tim on 11/14/2016.
+ *
  */
 public class ProcessArgs {
 
