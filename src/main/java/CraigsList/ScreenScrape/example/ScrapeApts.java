@@ -1,3 +1,4 @@
+package CraigsList.ScreenScrape.example;
 /**
  * Created by tim on 11/9/2016.
  */
@@ -14,22 +15,15 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
-//TODO - what to do with the output?
-//TODO - process parameters - max price, cityname, bed rooms
 public class ScrapeApts {
     private static final String priceName = "result-price";
     private static final String locateName = "result-hood";
     private static final String titleName = "result-title";
     private static final String info = "housing";
-    private static String baseSearchUrl = "https://losangeles.craigslist.org/search/apa";
-    private static String baseUrl = "https://losangeles.craigslist.org";
     private static String availMode = "availabilityMode=0";
     private static Document doc;
     private int mTotalCount = 0;
     private int mProcessedCount = 0;
-    private final String mLocateQuery = "query=";
-    private final String mMinPrice = "min_price=";
-    private final String mMaxPrice = "max_price=";
     Set<String> mUniqueListingSet = new HashSet<String>();
     ProcessArgs processArgs = null;
 
@@ -47,12 +41,15 @@ public class ScrapeApts {
      * process query
      */
     private void processListings() {
+        String mResultsFile = "/users/tim/Documents/queryResults.txt";
+        BufferedWriter bw = openFile(mResultsFile);
         while (mTotalCount > mProcessedCount) {
             queryProcess();
-            processPage();
+            processPage(bw);
         }
-        System.out.println("Total read in at start = " + String.valueOf(mTotalCount) + " Proccesed count = " + String.valueOf(mProcessedCount));
-        System.out.println("Unique Listing Count = " + mUniqueListingSet.size());
+        writeToFile(bw, "Total read in at start = " + String.valueOf(mTotalCount) + " Proccesed count = " + String.valueOf(mProcessedCount));
+        writeToFile(bw, "Unique Listing Count = " + mUniqueListingSet.size());
+        closeFile(bw);
     }
 
     /**
@@ -61,23 +58,27 @@ public class ScrapeApts {
      * //https://losangeles.craigslist.org/search/apa?query=glendale&max_price=2000&availabilityMode=0
      * //https://losangeles.craigslist.org/search/apa?query=pasadena&min_price=500&max_price=2000&availabilityMode=0
      *
-     * @return
+     * @return query string
      */
     private String buildQuery() {
+        String baseSearchUrl = "https://losangeles.craigslist.org/search/apa";
+        String mLocateQuery = "query=";
+        String mMinPrice = "min_price=";
+        String mMaxPrice = "max_price=";
         StringBuilder queryUri = new StringBuilder(baseSearchUrl);
         if (mTotalCount != 0 && mProcessedCount != 0) {
-            queryUri.append("?s=" + Integer.toString(mProcessedCount) + "&");
+            queryUri.append("?s=").append(Integer.toString(mProcessedCount)).append("&");
         } else {
             queryUri.append("?");
         }
-        if (!processArgs.getCitytName().isEmpty()) {
-            queryUri.append(mLocateQuery + processArgs.getCitytName());
+        if (!processArgs.getCityName().isEmpty()) {
+            queryUri.append(mLocateQuery).append(processArgs.getCityName());
         }
         if (processArgs.getMinPrice() != 0) {
-            queryUri.append("&" + mMinPrice + processArgs.getMinPrice());
+            queryUri.append("&").append(mMinPrice).append(processArgs.getMinPrice());
         }
-        if (processArgs.getmMaxPrice() != 0) {
-            queryUri.append("&" + mMaxPrice + processArgs.getmMaxPrice());
+        if (processArgs.getMaxPrice() != 0) {
+            queryUri.append("&").append(mMaxPrice).append(processArgs.getMaxPrice());
         }
         System.out.println("QUERY STRING = " + queryUri.toString());
         return queryUri.toString();
@@ -88,13 +89,19 @@ public class ScrapeApts {
      * for the city
      */
     private void queryProcess() {
+        String mDocumentDom = "/users/tim/Documents/domList.txt";
         String query = buildQuery();
         try {
             doc = Jsoup.connect(query).get();
         } catch (IOException io) {
             System.out.println("Error connecting to " + query + " - " + io.getMessage());
         }
-        writeToFile();
+        BufferedWriter bw = openFile(mDocumentDom);
+        if (bw != null) {
+            writeToFile(bw, doc.toString());
+            closeFile(bw);
+        }
+
         Elements total = doc.getElementsByClass("totalcount");
         mTotalCount = Integer.parseInt(total.get(0).text());
 
@@ -104,14 +111,16 @@ public class ScrapeApts {
      * get the city/location if present, the url of the post, and the rent amount
      */
     //TODO - if description is blank printout the stupid title - what about parsing and blocking $value
-    public void processPage() {
+    public void processPage(BufferedWriter bw) {
         int procCnt = 0;
+        String baseUrl = "https://losangeles.craigslist.org";
+
         Elements resultVals = doc.getElementsByClass("result-info");
         for (Element result : resultVals) {
             Elements links = result.getElementsByTag("a");
             String linkHref = links.attr("href");
             if (!linkHref.contains("#") && linkHref.contains("apa")) {
-                System.out.println(baseUrl + linkHref);  //this gets a clickable link to the listing
+                writeToFile(bw, baseUrl + linkHref + "\r\n");  //this gets a clickable link to the listing
                 if (!mUniqueListingSet.contains(baseUrl + linkHref)) {
                     mUniqueListingSet.add(baseUrl + linkHref);
                 }
@@ -119,9 +128,9 @@ public class ScrapeApts {
             String title = result.getElementsByClass(titleName).get(0).text();
             //the above can yield # BR 2 BA Property Available for rent in North Hollywood $2900
             Elements resultInfo = result.getElementsByClass("result-meta");
-            System.out.println(resultInfo.get(0).getElementsByClass(priceName).text() + "  " +
+            writeToFile(bw, resultInfo.get(0).getElementsByClass(priceName).text() + "  " +
                     resultInfo.get(0).getElementsByClass(info).text() + "  " +
-                    resultInfo.get(0).getElementsByClass(locateName).text().replace("(", "").replace(")", ""));
+                    resultInfo.get(0).getElementsByClass(locateName).text().replace("(", "").replace(")", "")+"\r\n");
             procCnt++;
         }
         //   System.out.println("COUNT = " + resultVals.size());
@@ -129,24 +138,55 @@ public class ScrapeApts {
     }
 
     /**
-     * Dump the entire DOM to a file to track down elements
+     * writes text to file
      *
+     * @param bw - bufferedWriter
+     * @param content - string content to write
      */
-    public void writeToFile() {
+    public void writeToFile(BufferedWriter bw, String content) {
         //<div id="mapcontainer" data-arealat="34.052200" data-arealon="-118.242996">
         try {
-            File file = new File("/users/tim/Documents/domList.txt");
-            if (!file.exists()) {
-                file.createNewFile();
-            }
-            FileWriter fw = new FileWriter(file.getAbsoluteFile());
-            BufferedWriter bw = new BufferedWriter(fw);
-            bw.write(doc.toString());
-            bw.close();
+            bw.write(content);
         } catch (IOException io) {
             System.out.println("Exception file processing = " + io.getMessage());
         }
     }
 
+    /**
+     * open file for text writing
+     *
+     * @param filename - name of file to open
+     * @return BufferedWriter for file to write
+     */
+    public BufferedWriter openFile(String filename) {
+        File file;
+        BufferedWriter bw = null;
+        try {
+            file = new File(filename);
+            if (file.exists()) {
+                file.delete();
+            }
+            file.createNewFile();
+            FileWriter fw = new FileWriter(file.getAbsoluteFile());
+            bw = new BufferedWriter(fw);
+        } catch (IOException io) {
+            bw = null;
+            System.out.println("Error opening file " + filename);
+        }
+        return bw;
+    }
+
+    /**
+     * close the file.
+     *
+     * @param bw bufferredwriter
+     */
+    public void closeFile(BufferedWriter bw) {
+        try {
+            bw.close();
+        } catch (IOException io) {
+            System.out.println("Errior closing file");
+        }
+    }
 }
 
